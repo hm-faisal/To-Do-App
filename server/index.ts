@@ -9,11 +9,13 @@ import { Db } from "mongodb";
 import routes from "./routes";
 import connectDB from "./db";
 import { type CustomError } from "./utils/error";
+import http from "http";
+import { setupWebSocket } from "./service/websocket";
 
 // types/express.d.ts
 declare module "express-serve-static-core" {
   interface Request {
-    db?: Db; // Adding the db property to Request
+    db?: Db;
   }
 }
 
@@ -26,7 +28,7 @@ async function startServer() {
   // Middleware
   app.use(express.json());
 
-  // Inject `db` into routes if needed
+  // Inject `db` into routes
   app.use((req, _res, next) => {
     req.db = db;
     next();
@@ -35,19 +37,22 @@ async function startServer() {
   // Routes
   app.use(routes);
 
-  // Global error Handler
+  // Global error handler
   app.use(
     (err: CustomError, _req: Request, res: Response, _next: NextFunction) => {
-      const status = err.status ? err.status : 500;
-      const message = err.message ? err.message : "Something went wrong";
-      res.status(status).json({
-        message: message,
-        success: false,
-      });
+      const status = err.status || 500;
+      const message = err.message || "Something went wrong";
+      res.status(status).json({ message, success: false });
     }
   );
 
-  app.listen(port, () => console.log(`🚀 TO-DO app running on port ${port}`));
+  // Create HTTP server & attach WebSocket
+  const server = http.createServer(app);
+  setupWebSocket(server, db); // Pass `db` to WebSocket if needed
+
+  server.listen(port, () =>
+    console.log(`🚀 TO-DO app running on port ${port}`)
+  );
 }
 
 startServer();

@@ -20,7 +20,7 @@ const postUser = async (
 
     // Validate request body
     if (!email || !userId || !name) {
-      throw error("Invalid Info", 400); // Use 400 (Bad Request)
+      throw error("Invalid Info", 404);
     }
 
     // Check if the user already exists
