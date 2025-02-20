@@ -1,27 +1,18 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import { io } from "socket.io-client";
 
-const socket = io("http://localhost:5000");
+const initialTasks = {
+  todo: [
+    { id: "1", content: "Task 1" },
+    { id: "2", content: "Task 2" },
+  ],
+  inProgress: [{ id: "3", content: "Task 3" }],
+  completed: [{ id: "4", content: "Task 4" }],
+};
 
 const TodoApp = () => {
-  const [tasks, setTasks] = useState({});
+  const [tasks, setTasks] = useState(initialTasks);
   console.log(tasks);
-
-  useEffect(() => {
-    // Listen for To-Do list updates from backend
-    socket.on("todo", (updatedTodos) => {
-      setTasks({ ...updatedTodos });
-    });
-
-    return () => {
-      socket.off("todo-updated");
-    };
-  }, []);
-  const [updateTaskInfo, setUpdateTaskInfo] = useState({});
-  useEffect(() => {
-    socket.emit("updated-todos", updateTaskInfo);
-  }, [updateTaskInfo]);
 
   const onDragEnd = (result) => {
     const { source, destination } = result;
@@ -50,8 +41,6 @@ const TodoApp = () => {
 
       updatedTasks[sourceCol] = sourceItems;
       updatedTasks[destCol] = destItems;
-
-      setUpdateTaskInfo({ id: movedItem._id, sourceCol, destCol });
     }
 
     setTasks(updatedTasks);
@@ -72,11 +61,7 @@ const TodoApp = () => {
                   {columnKey.toUpperCase()}
                 </h2>
                 {tasks[columnKey].map((task, index) => (
-                  <Draggable
-                    key={task._id}
-                    draggableId={task._id}
-                    index={index}
-                  >
+                  <Draggable key={task.id} draggableId={task.id} index={index}>
                     {(provided) => (
                       <div
                         ref={provided.innerRef}
@@ -84,7 +69,7 @@ const TodoApp = () => {
                         {...provided.dragHandleProps}
                         className="p-2 bg-white rounded shadow mb-2"
                       >
-                        {task.title}
+                        {task.content}
                       </div>
                     )}
                   </Draggable>
