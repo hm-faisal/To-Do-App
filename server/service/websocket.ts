@@ -1,6 +1,8 @@
 import { Server } from "socket.io";
 import http from "http";
 import { Db, ObjectId } from "mongodb";
+import websocketResponse from "../utils/sendWebsocketRes";
+import error from "../utils/error";
 
 export const setupWebSocket = (server: http.Server, db: Db) => {
   const io = new Server(server, {
@@ -12,33 +14,51 @@ export const setupWebSocket = (server: http.Server, db: Db) => {
 
   io.on("connection", async (socket) => {
     console.log(`User connected: ${socket.id}`);
+    let email;
+    socket.on("getTodoFor", async (user) => {
+      email = user;
+      if (!email) {
+        throw error("user Not Found", 404);
+      }
+      try {
+        // Response Initial data form database
+        const data = await websocketResponse(db, email);
+        socket.emit("todo", data ? data : []);
+      } catch (error) {
+        console.error("Error fetching initial data:", error);
+        socket.emit("todo", []);
+      }
+    });
 
-    try {
-      const initialTodoData = await db.collection("todos").find().toArray();
-      const todo = initialTodoData.filter((item) => item.category === "todo");
-      const inprogress = initialTodoData.filter(
-        (item) => item.category === "inProgress"
-      );
-      const complete = initialTodoData.filter(
-        (item) => item.category === "completed"
-      );
-      const data = {
-        todo: todo,
-        inProgress: inprogress,
-        completed: complete,
-      };
-      socket.emit("todo", initialTodoData ? data : []);
-    } catch (error) {
-      console.error("Error fetching initial data:", error);
-      socket.emit("todo", []);
-    }
+    socket.on("update-todo", async (todo) => {
+      const { id, title, description, category, email } = todo;
+      try {
+        if (!id || !title || !category || !email)
+          throw error("Data Invalid", 404);
+        await db
+          .collection("todos")
+          .updateOne(
+            { _id: new ObjectId(id) },
+            { $set: { title, description, category } },
+            { upsert: true }
+          );
+
+        // send updated data
+        const data = await websocketResponse(db, email);
+        socket.emit("todo", data ? data : []);
+      } catch (error) {
+        console.error("Error fetching initial data:", error);
+        socket.emit("todo", []);
+      }
+    });
 
     socket.on("updated-todos", async (task) => {
-      const { id, sourceCol, destCol } = task;
+      const { id, destCol, email } = task;
 
       if (!id) return;
       try {
-        const result = await db
+        // updata on todos category
+        await db
           .collection("todos")
           .updateOne(
             { _id: new ObjectId(id) },
@@ -46,25 +66,48 @@ export const setupWebSocket = (server: http.Server, db: Db) => {
             { upsert: true }
           );
 
-        // io.emit("todo-updated", updatedTodoData ? updatedTodoData.todos : []); // Emit the actual data
+        // send updated data
+        const data = await websocketResponse(db, email);
+        socket.emit("todo", data ? data : []);
       } catch (error) {
         console.error("Failed to update To-Do List:", error);
         socket.emit("update-error", "Failed to update To-Do List"); // Inform the client about the error
-      } finally {
-        const updatedTodoData = await db.collection("todos").find().toArray();
-        const todo = updatedTodoData.filter((item) => item.category === "todo");
-        const inprogress = updatedTodoData.filter(
-          (item) => item.category === "inProgress"
-        );
-        const complete = updatedTodoData.filter(
-          (item) => item.category === "completed"
-        );
-        const data = {
-          todo: todo,
-          inProgress: inprogress,
-          completed: complete,
-        };
-        socket.emit("todo", updatedTodoData ? data : []);
+      }
+    });
+
+    socket.on("delete-todo", async (todo) => {
+      const { id, userEmail } = todo;
+      try {
+        // Delete todo
+        await db
+          .collection("todos")
+          .deleteOne({ _id: new ObjectId(id), userEmail });
+
+        // send updated data
+        const data = await websocketResponse(db, userEmail);
+        socket.emit("todo", data ? data : []);
+      } catch (error) {
+        console.error("Failed to update To-Do List:", error);
+        socket.emit("update-error", "Failed to update To-Do List"); // Inform the client about the error
+      }
+    });
+
+    // Create New to-do
+    socket.on("create-todo", async (todo) => {
+      const { title, description, category, userEmail } = todo;
+      if (!title || !category || !userEmail) return;
+      try {
+        // insert todo
+        await db
+          .collection("todos")
+          .insertOne({ title, description, category, userEmail });
+
+        // send updated data
+        const data = await websocketResponse(db, userEmail);
+        socket.emit("todo", data ? data : []);
+      } catch (error) {
+        console.error("Failed to update To-Do List:", error);
+        socket.emit("update-error", "Failed to update To-Do List"); // Inform the client about the error
       }
     });
 
