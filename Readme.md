@@ -7,13 +7,15 @@ offers:
 - user can delete to-do on every step
 - Can drag an drop to update state
 - saved to do by user google account
-  Technology:
+
+Technology:
 
 - React with vite
 - Nodejs Runtime with express server
 - MongoDB Database
 - Hosted on Vercel
-  Packages:
+
+Packages:
 
 Frontend:
 
@@ -23,14 +25,16 @@ Frontend:
 - Tanstack Query
 - Hello Pangea/ dnd
 - socket.io-client
-  Backend:
+
+Backend:
 
 - MongoDB
 - Express
 - Cors
 - Dotenv
 - socket.io
-  SetUp locally : (Frontend)
+
+SetUp locally : (Frontend)
 
 clone github repo: `https://github.com/hm-faisal/To-Do-App.git`
 
